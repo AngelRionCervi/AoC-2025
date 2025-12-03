@@ -1,3 +1,3 @@
-export function inputParser(input: string) {
-  return input.trim().split("\n");
+export function inputParser(input: string, separator = "\n"): string[] {
+  return input.trim().split(separator);
 }
