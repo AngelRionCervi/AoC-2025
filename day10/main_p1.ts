@@ -1,4 +1,4 @@
-import input from "./test_input.ts";
+import input from "./input.ts";
 import { inputParser } from "../utils.ts";
 
 interface Command {
@@ -13,16 +13,30 @@ const commands = inputLines.map<Command>((line) => {
   if (!match) throw new Error("Invalid input line: " + line);
 
   const indicator = match[1].split("").map((char) => (char === "#" ? 1 : 0));
-  const sequences = match[2].split(" ").map((seq) =>
-    seq
-      .slice(1, -1)
-      .split(",")
-      .map(Number)
-      .sort((a, b) => a - b),
-  );
+  const sequences = match[2].split(" ").map((seq) => seq.slice(1, -1).split(",").map(Number));
 
   return { indicator, sequences };
 });
+
+function combinations(arr: number[][], r: number) {
+  const result: number[][][] = [];
+
+  function helper(start: number, combo: number[][]) {
+    if (combo.length === r) {
+      result.push([...combo]);
+      return;
+    }
+
+    for (let i = start; i < arr.length; i++) {
+      combo.push(arr[i]);
+      helper(i + 1, combo);
+      combo.pop();
+    }
+  }
+
+  helper(0, []);
+  return result;
+}
 
 function getFidelityScore(indicatorRef: number[], indicator: number[]) {
   let score = 0;
@@ -36,85 +50,44 @@ function getFidelityScore(indicatorRef: number[], indicator: number[]) {
   return score;
 }
 
-function getBestSequence(
-  sequences: number[][],
-  indicatorRef: number[],
-  currIndicator: Command["indicator"],
-  startIndex = 0,
-  startFidelity = 0,
-  startSteps = 0,
-  currentSequence: number[][] = [],
-) {
-  let fidelity = startFidelity;
-  let steps = startSteps;
+function processSequences(sequences: number[][], indicator: number[]) {
+  let minSeqLength = Infinity;
 
-  let newIndicator = [...currIndicator];
+  for (let r = 1; r < sequences.length; r++) {
+    if (r >= minSeqLength) break;
 
-  startIndex = startIndex > sequences.length - 1 ? 0 : startIndex;
+    const allSequences = combinations(sequences, r);
 
-  for (let i = startIndex; i < sequences.length; i++) {
-    const seq = sequences[i];
+    for (let i = 0; i < allSequences.length; i++) {
+      const newIndicator = [...indicator].map(() => 0);
+      const newSequences = allSequences[i];
 
-    for (let k = 0; k < seq.length; k++) {
-      const pos = seq[k];
-      newIndicator[pos] = currIndicator[pos] === 1 ? 0 : 1;
-    }
+      if (newSequences.length >= minSeqLength) continue;
 
-    const newFidelity = getFidelityScore(indicatorRef, newIndicator);
+      for (let j = 0; j < newSequences.length; j++) {
+        const seq = newSequences[j];
 
-    if (newFidelity > fidelity) {
-      steps++;
-      fidelity = newFidelity;
-      currentSequence = [...currentSequence, seq];
+        for (let k = 0; k < seq.length; k++) {
+          const pos = seq[k];
+          newIndicator[pos] = newIndicator[pos] === 1 ? 0 : 1;
+        }
 
-      if (fidelity === indicatorRef.length) {
-        return { steps, fidelity, currentSequence };
+        const fidelity = getFidelityScore(indicator, newIndicator);
+        const trueLength = j + 1;
+
+        if (fidelity === indicator.length && trueLength < minSeqLength) {
+          minSeqLength = trueLength;
+        }
       }
-    } else {
-      newIndicator = newIndicator.map(() => 0);
-      fidelity = 0;
-      steps = 0;
-      currentSequence = [];
     }
-    
-    return getBestSequence(sequences, indicatorRef, newIndicator, i + 1, fidelity, steps, currentSequence);
   }
+
+  return minSeqLength;
 }
-// const startFidelity = getFidelityScore(
-//   [...commands[0].indicator],
-//   [...commands[0].indicator].map(() => 0),
-// );
-// const bestSeq = getBestSequence(0, [...commands[0].indicator], 0, startFidelity);
 
-// console.log("Best sequence for command 0:", bestSeq);
+const total = commands.reduce(
+  (acc, command) => acc + processSequences(command.sequences, command.indicator),
+  0,
+);
 
-for (let i = 0; i < commands.length; i++) {
-  const indicatorRef = [...commands[i].indicator];
-  const indicatorReset = [...commands[i].indicator].map(() => 0);
-
-  const startFidelity = getFidelityScore(
-    indicatorRef,
-    indicatorReset,
-  );
-
-  const filteredSequencesForCommand = commands[i].sequences.filter((seq) => {
-    let toggledCount = 0;
-    for (const pos of seq) {
-      if (commands[i].indicator[pos] === 1) {
-        toggledCount++;
-      }
-    }
-    return toggledCount > 0;
-  });
-
-  console.log('Filtered sequences for command', i, ':', filteredSequencesForCommand);
-
-  const bestSeq = getBestSequence(
-    filteredSequencesForCommand,
-    indicatorRef,
-    indicatorReset,
-    0,
-    startFidelity,
-  );
-  console.log("Best sequence for command:", bestSeq);
-}
+console.log("Total:", total);
