@@ -86,7 +86,7 @@ function processSequences(sequences: number[][], indicator: number[]) {
 }
 
 const total = commands.reduce(
-  (acc, command) => acc + processSequences(command.sequences, command.indicator),
+  (acc, { sequences, indicator }) => acc + processSequences(sequences, indicator),
   0,
 );
 
